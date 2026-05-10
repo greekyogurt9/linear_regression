@@ -1,1 +1,1 @@
-# statistical_learning
+# linear_regression
