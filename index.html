@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Linear Regression Checklist</title>
+<link rel="icon" type="image/png" href="logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -355,6 +356,12 @@ body {
 <header class="page-hdr">
   <h1>Linear Regression Checklist</h1>
   <p>End-to-end guide — from framing to communication. Works for both prediction and inference tasks.</p>
+  <div class="note note-warn" style="margin-top: 16px; max-width: 780px;">
+    <span class="nlbl">⚠️ Scope Limitation</span>
+    This checklist assumes: <b>(1) Y is continuous</b>, <b>(2) observations are independent</b> (no time series or hierarchical structure), and <b>(3) relationships are approximately linear</b>. 
+    If you have ordinal/count Y (use ordinal logistic regression or Poisson), time series (use ARIMA/state-space), hierarchical data (use mixed models), or highly nonlinear relationships (use GAM/splines), consult domain-specific guides instead. 
+    This checklist alone is insufficient for those settings.
+  </div>
 </header>
 
 <div class="prog">
@@ -381,9 +388,16 @@ body {
       <span class="step-title">Define Y — what exactly are you predicting?</span>
       <span class="step-tag tag-m">Must</span>
     </div>
-    <p class="step-desc">Be precise. Not "customer value" but "total spend in the next 90 days in ₹."<br> Vague Y = untestable model. <b>Y must be continuous and numeric.</b> If Y is categorical (churn yes/no, pass/fail), stop here and use logistic regression instead.</p>
+    <p class="step-desc">Be precise. Not "customer value" but "total spend in the next 90 days in ₹." Vague Y = untestable model. <b>Y type determines your method.</b> Linear regression works well for continuous Y (revenue, price). For other types, specialist models are needed:</p>
     <div class="notes">
-      <div class="note note-warn"><span class="nlbl">Watch out</span>Ordinal ratings (1–5 stars) look numeric but aren't truly continuous. Proceed with caution — coefficient interpretation becomes unreliable.</div>
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Continuous Y</div><div class="kv-val">Revenue, temperature, distance. Use linear regression. Validate with residual diagnostics.</div></div>
+        <div class="kv"><div class="kv-key">Count Y</div><div class="kv-val">Number of visits, claims filed. Linear regression gives biased predictions. Use Poisson or negative binomial regression instead.</div></div>
+        <div class="kv"><div class="kv-key">Ordinal Y</div><div class="kv-val">Ratings (1–5 stars), satisfaction (low/medium/high). Order matters but distances meaningless. Use ordered logistic regression, not linear.</div></div>
+        <div class="kv"><div class="kv-key">Binary Y</div><div class="kv-val">Yes/no, default/no-default. Use logistic regression, not linear regression.</div></div>
+        <div class="kv"><div class="kv-key">Bounded Y</div><div class="kv-val">Percentages (0–100), proportions (0–1). Linear regression can predict outside bounds. Use beta regression or logistic-linear hybrid.</div></div>
+      </div>
+      <div class="note note-warn"><span class="nlbl">Ordinal ratings are not continuous</span>A 1–5 star rating looks numeric but the jump from 3→4 is not the same as 4→5 (ordinal scales). Using linear regression assumes equal intervals, which is false. Predictions outside [1,5] don't make sense. Use ordered logistic regression instead.</div>
     </div>
   </div></div>
 
@@ -416,75 +430,34 @@ body {
 <div class="phase" id="ph2">
 <button class="ph-toggle" onclick="tog('ph2')">
   <span class="ph-num">02</span>
-  <span class="ph-name">Data Preparation & EDA</span>
-  <span class="ph-sub">Understand data before any modelling</span>
+  <span class="ph-name">Exploratory Data Analysis (Full Dataset)</span>
+  <span class="ph-sub">Understand data structure — no preprocessing decisions yet</span>
   <span class="ph-cnt" id="ct2"></span>
   <span class="ph-arrow">▾</span>
 </button>
 <div class="ph-steps">
 
-  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
-    <div class="step-header">
-      <span class="step-title">Check sample size against number of predictors</span>
-      <span class="step-tag tag-m">Must</span>
-    </div>
-    <p class="step-desc">Too few observations per predictor → unstable coefficients, inflated R², unreliable standard errors. If <b>p &gt; n</b>, OLS cannot be fit at all — (XᵀX) is not invertible.</p>
-    <div class="notes">
-      <div class="kv-list">
-        <div class="kv"><div class="kv-key">Rule of thumb</div><div class="kv-val">Minimum <b>n &gt; 20 × p</b> for reliable estimates</div></div>
-        <div class="kv"><div class="kv-key">If p &gt; n</div><div class="kv-val">OLS fails. Use forward selection, Ridge, or Lasso</div></div>
+  <div class="step step-info">
+    <div class="step-body">
+      <div class="step-header">
+        <span class="step-title">⚠️ Critical: Do not make preprocessing decisions on full data</span>
+      </div>
+      <p class="step-desc">Any statistic computed to guide a decision (mean for imputation, log transformation parameters, dummy encoding rules, correlation thresholds) learned from the full dataset leaks test set information into training. This creates artificially optimistic performance metrics and is data leakage.</p>
+      <div class="notes">
+        <div class="note note-warn"><span class="nlbl">Wait until Phase 04</span>To transform Y, handle missing values, encode categoricals, scale features, or select variables based on correlations — all of these must happen AFTER the train/test split, computed only on training data and applied to test data.</div>
       </div>
     </div>
-  </div></div>
+  </div>
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
     <div class="step-header">
       <span class="step-title">Explore distributions — histograms and summary statistics for all variables</span>
       <span class="step-tag tag-m">Must</span>
     </div>
-    <p class="step-desc">Look for extreme skewness in Y and each X. Heavily skewed Y (income, revenue, house prices) often benefits from a log transformation before modelling — it linearises exponential relationships and tends to reduce heteroscedasticity. Flag impossible or suspicious values.</p>
+    <p class="step-desc">Look for extreme skewness in Y and each X. Heavily skewed Y (income, revenue, house prices) often benefits from a log transformation before modelling — it linearises exponential relationships and tends to reduce heteroscedasticity. Flag impossible or suspicious values. Get a sense of ranges and outliers.</p>
   </div></div>
 
-  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
-    <div class="step-header">
-      <span class="step-title">Consider transforming Y if it is heavily skewed or multiplicative in nature</span>
-      <span class="step-tag tag-o">Optional</span>
-    </div>
-    <p class="step-desc">A log-transformed Y is appropriate when effects are multiplicative rather than additive — i.e. a 1-unit increase in X changes Y by a <em>percentage</em> rather than a fixed amount. Common in revenue, salary, price, and population data. The model then becomes: log(Y) = β₀ + β₁X, and β₁ is interpreted as the approximate percentage change in Y per unit increase in X.</p>
-    <div class="notes">
-      <div class="kv-list">
-        <div class="kv"><div class="kv-key">When to consider</div><div class="kv-val">Y is right-skewed, has a floor near zero, or residual plots after fitting show heteroscedasticity (funnel shape)</div></div>
-        <div class="kv"><div class="kv-key">Interpretation shift</div><div class="kv-val">After log(Y): β̂₁ ≈ 100·β̂₁% change in Y per unit X. Predictions must be back-transformed: ŷ = exp(predicted log Y)</div></div>
-        <div class="kv"><div class="kv-key">Test it</div><div class="kv-val">Compare residual plots and CV MSE with and without the transformation — let the diagnostics decide</div></div>
-      </div>
-    </div>
-  </div></div>
 
-  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
-    <div class="step-header">
-      <span class="step-title">Handle missing values — investigate why, then decide</span>
-      <span class="step-tag tag-m">Must</span>
-    </div>
-    <p class="step-desc">The mechanism behind missing data matters as much as the volume. Never silently drop rows without understanding why data is absent.</p>
-    <div class="notes">
-      <div class="kv-list">
-        <div class="kv"><div class="kv-key">Missing at random</div><div class="kv-val">Safe to impute with mean/median or model-based imputation. Dropping rows acceptable if &lt;5%.</div></div>
-        <div class="kv"><div class="kv-key">Not at random</div><div class="kv-val">Missingness itself carries signal. Add a binary "was_missing" indicator as an additional predictor.</div></div>
-      </div>
-    </div>
-  </div></div>
-
-  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
-    <div class="step-header">
-      <span class="step-title">Encode categorical variables as dummy / indicator variables</span>
-      <span class="step-tag tag-m">Must</span>
-    </div>
-    <p class="step-desc">OLS cannot process text. For a categorical variable with <b>K levels, create K−1 dummies</b>. The omitted level becomes the <b>baseline</b> — all coefficients are interpreted relative to it. Choose the most natural or most common level as baseline.</p>
-    <div class="notes">
-      <div class="note note-warn"><span class="nlbl">Dummy variable trap</span>Creating all K dummies produces perfect multicollinearity and OLS fails. Most software handles this automatically, but verify your encoding.</div>
-      <div class="note note-tip"><span class="nlbl">Inference note</span>When the goal is inference, choose a baseline that makes business sense — e.g. "no advertising" as baseline for media type — so coefficients represent meaningful comparisons.</div>
-    </div>
-  </div></div>
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
     <div class="step-header">
@@ -509,8 +482,9 @@ body {
     <p class="step-desc">High correlation between predictors (multicollinearity) inflates SE(β̂ⱼ), widens confidence intervals, and makes individual coefficient estimates unstable. It does not hurt prediction accuracy, but it <b>destroys inference</b> — you can no longer reliably say which variable is driving Y.</p>
     <div class="notes">
       <div class="kv-list">
-        <div class="kv"><div class="kv-key">Flag if |r| &gt; 0.8</div><div class="kv-val">Preliminary warning. Pairwise correlation misses multivariate collinearity — VIF after fitting is the definitive test.</div></div>
-        <div class="kv"><div class="kv-key">If severe</div><div class="kv-val">Drop one variable, combine them into an index, or use Ridge regression which handles collinearity gracefully.</div></div>
+        <div class="kv"><div class="kv-key">Flag if |r| > 0.8</div><div class="kv-val">Pairwise correlation > 0.8 suggests possible collinearity. But pairwise misses <em>multivariate</em> collinearity (when one X is a linear combination of several others). This is why VIF after fitting is the definitive test.</div></div>
+        <div class="kv"><div class="kv-key">Severity assessment</div><div class="kv-val">Pairwise r > 0.9: severe. r = 0.8–0.9: moderate. r < 0.8: usually acceptable. But again, wait for VIF.</div></div>
+        <div class="kv"><div class="kv-key">If severe pairwise</div><div class="kv-val">Drop one variable, combine them into an index, or use Ridge regression which handles collinearity gracefully. But confirm with VIF after fitting.</div></div>
       </div>
     </div>
   </div></div>
@@ -531,6 +505,23 @@ body {
     </div>
   </div></div>
 
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Plan sample size for adequate statistical power (Inference tasks only)</span>
+      <span class="step-tag tag-o">Optional</span>
+      <span class="step-tag tag-inf">Inference</span>
+    </div>
+    <p class="step-desc">Statistical power is the probability of detecting a true effect when it exists. Low power means you may miss real relationships due to a small sample size. This step applies mainly to experimental or planned-data designs where you control n.</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Power calculation inputs</div><div class="kv-val">Effect size (β you want to detect), baseline noise (σ), number of predictors (p), desired power (typically 0.80 = 80%), significance level α = 0.05</div></div>
+        <div class="kv"><div class="kv-key">Typical rule</div><div class="kv-val">For simple regression detecting a correlation r > 0.3 at 80% power: n ≈ 90. For detecting r > 0.2: n ≈ 200. Tools: G*Power (free software) or online calculators.</div></div>
+        <div class="kv"><div class="kv-key">Multiple predictors</div><div class="kv-val">As p increases, required n increases roughly linearly. If planning n, use rule-of-thumb n > 20×p to ensure stable estimates (discussed in Phase 03).</div></div>
+        <div class="kv"><div class="kv-key">Observational data</div><div class="kv-val">If you don't control n (e.g., analyzing historical data), you cannot adjust sample size. Instead, report post-hoc power to interpret non-significant results (e.g., "we had 40% power to detect r = 0.3, so absence of significance is inconclusive").</div></div>
+      </div>
+    </div>
+  </div></div>
+
 </div>
 </div>
 
@@ -538,9 +529,179 @@ body {
 <div class="phase" id="ph3">
 <button class="ph-toggle" onclick="tog('ph3')">
   <span class="ph-num">03</span>
+  <span class="ph-name">Train / Test Split & Cross-Validation Setup</span>
+  <span class="ph-sub">Lock evaluation framework BEFORE preprocessing</span>
+  <span class="ph-cnt" id="ct3"></span>
+  <span class="ph-arrow">▾</span>
+</button>
+<div class="ph-steps">
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Split data into Train and Test FIRST — before any preprocessing</span>
+      <span class="step-tag tag-m">Must</span>
+    </div>
+    <p class="step-desc">Lock the test set away immediately after splitting. It must not influence any modelling decision — not even preprocessing decisions. Test set exists to give you an honest, final performance number used exactly once. If any preprocessing parameter (mean for imputation, transformation fit, encoding rules) is computed from the full dataset, test data leaks into training.</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Random split (balanced Y)</div><div class="kv-val">70–80% train, 20–30% test. Use random assignment if Y is roughly uniform (continuous) or balanced (binary).</div></div>
+        <div class="kv"><div class="kv-key">Stratified split (imbalanced Y)</div><div class="kv-val">If Y has extreme class imbalance (e.g., 95% negative, 5% positive) or skewed distribution, stratify the split: ensure train and test have the same Y distribution as the full dataset. Use stratified random sampling, not pure random.</div></div>
+        <div class="kv"><div class="kv-key">Time series</div><div class="kv-val">Split <b>chronologically</b>. Train on earlier data, test on later. Random or stratified split leaks future information into training.</div></div>
+      </div>
+      <div class="note note-tip"><span class="nlbl">Inference note</span>For inference-only tasks (no forecasting), a formal train/test split is less critical. The focus shifts to coefficient stability and quality of standard errors rather than out-of-sample prediction accuracy.</div>
+    </div>
+  </div></div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Check sample size against number of predictors (on training set)</span>
+      <span class="step-tag tag-m">Must</span>
+    </div>
+    <p class="step-desc">Too few training observations relative to number of candidate predictors → unstable coefficients, inflated R², unreliable standard errors. Check AFTER split, using training set size only.</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Rule of thumb</div><div class="kv-val">Aim for <b>n_train > 20 × p</b> for stable OLS estimates. If violated, use regularization (Ridge, Lasso) instead of OLS.</div></div>
+        <div class="kv"><div class="kv-key">If p ≥ n_train</div><div class="kv-val">OLS fails — (XᵀX) is not invertible. Use Ridge, Lasso, or elastic net instead.</div></div>
+        <div class="kv"><div class="kv-key">Why 20×?</div><div class="kv-val">Rules of thumb vary (10×, 20×). The real constraint is degrees of freedom: if p consumes >10% of n, standard errors inflate. Use regularization to handle high p-to-n ratios gracefully.</div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Use K-Fold Cross-Validation on training data for all model selection decisions</span>
+      <span class="step-tag tag-m">Must</span>
+    </div>
+    <p class="step-desc">Variable selection, transformation choices, and model complexity decisions must all be made using CV MSE on training data only. CV gives a far more reliable estimate of generalisation error than training MSE, which always decreases as you add variables.</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">K choice</div><div class="kv-val">K = 5 or K = 10 are standard. K = 10 gives lower bias; K = 5 is faster.</div></div>
+        <div class="kv"><div class="kv-key">Compare models by</div><div class="kv-val">CV MSE — not training R², not training RSE.</div></div>
+      </div>
+    </div>
+  </div></div>
+
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ 04 -->
+<div class="phase" id="ph4">
+<button class="ph-toggle" onclick="tog('ph4')">
+  <span class="ph-num">04</span>
+  <span class="ph-name">Preprocessing Pipeline (Training Data Only)</span>
+  <span class="ph-sub">Fit transformations on train set, apply to test set</span>
+  <span class="ph-cnt" id="ct4"></span>
+  <span class="ph-arrow">▾</span>
+</button>
+<div class="ph-steps">
+
+  <div class="step step-info">
+    <div class="step-body">
+      <div class="step-header">
+        <span class="step-title">All preprocessing below must be fit on training data only, then applied to test data</span>
+      </div>
+      <p class="step-desc">Any statistic you compute (mean for imputation, transformation parameters, encoding rules, scaling factors, outlier thresholds, feature interactions) must come from the training set. Write down what parameters you learned on train. Apply the exact same parameters to test data without refitting.</p>
+      <div class="notes">
+        <div class="note note-warn"><span class="nlbl">Correct preprocessing order (matters!)</span>
+          <b>1. Create "was_missing" indicators BEFORE imputing</b> (missingness itself carries signal)
+          → <b>2. Impute missing values</b> (using train set mean/median)
+          → <b>3. Encode categorical variables</b> (based on train set levels)
+          → <b>4. Transform Y and X variables</b> (fit Box-Cox, log on train set)
+          → <b>5. Create polynomial/interaction terms</b> (X², X₁×X₂)
+          → <b>6. Scale/normalize features</b> (subtract train mean, divide by train SD)
+          <br><br>
+          Why this order? Interactions should use original scales (not log), scaling affects interaction magnitudes, and "was_missing" must exist before imputation changes the values. Document each step.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Handle missing values — investigate why, then impute using training statistics only</span>
+      <span class="step-tag tag-m">Must</span>
+    </div>
+    <p class="step-desc">The mechanism behind missing data matters. Never silently drop rows without understanding why. Calculate imputation parameters (mean, median, mode) from training set only. Apply those values to both train and test.</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Missing at random</div><div class="kv-val">Safe to impute with mean/median (from train set) or model-based imputation. Dropping rows acceptable if &lt;5%.</div></div>
+        <div class="kv"><div class="kv-key">Not at random</div><div class="kv-val">Missingness itself carries signal. Add a binary "was_missing" indicator predictor (fit on train, apply to test).</div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Transform Y if heavily skewed or multiplicative (fit parameters on train set only)</span>
+      <span class="step-tag tag-o">Optional</span>
+    </div>
+    <p class="step-desc">A log-transformed Y is appropriate when effects are multiplicative rather than additive. Common in revenue, salary, price data. If transforming: compute transformation parameters (e.g., λ in Box-Cox) from the training set distribution only, not the full dataset.</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Quantitative decision criteria</div><div class="kv-val"><b>|Skewness| > 1.0:</b> Y is highly skewed. Transformation likely to help. <b>Heteroscedasticity visible in residual plot:</b> Residual variance increases with fitted values (funnel shape) → try log(Y). <b>Y has a natural floor (e.g., prices ≥ 0):</b> Log transformation linearizes multiplicative growth.</div></div>
+        <div class="kv"><div class="kv-key">Interpretation shift after log</div><div class="kv-val">β̂₁ changes meaning: it becomes the % change in Y per unit X (multiply by 100 for percentages). Predictions must be back-transformed: ŷ = exp(predicted log Y).</div></div>
+        <div class="kv"><div class="kv-key">How to compare models</div><div class="kv-val">⚠️ <b>Critical:</b> If you log-transform Y, CV MSE is in log-space and NOT comparable to untransformed MSE. To compare: either (1) back-transform predictions to original scale before calculating MSE, (2) calculate RMSE on original Y scale, or (3) use Adjusted R² (scale-independent). Never directly compare MSE log-space vs original-space.</div></div>
+        <div class="kv"><div class="kv-key">Alternative transformations</div><div class="kv-val">Square root (mild skew), Box-Cox (data-driven optimal λ), or reciprocal for inverse relationships. Test with CV MSE which works best.</div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Encode categorical variables as dummy / indicator variables</span>
+      <span class="step-tag tag-m">Must</span>
+    </div>
+    <p class="step-desc">OLS cannot process text. For a categorical variable with <b>K levels, create K−1 dummies</b>. Identify the levels in the training set only. When you encounter a new level in test data that wasn't in train, handle it by grouping into "Other" or the baseline.</p>
+    <div class="notes">
+      <div class="note note-warn"><span class="nlbl">Encoding hazard</span>If test data contains a categorical level not seen in training, you have a data problem that preprocessing alone cannot fix. Document this and decide: drop the observation, group into "Other", or treat as baseline.</div>
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">When K is small</div><div class="kv-val">K ≤ 5: create K−1 dummies directly from training set categories.</div></div>
+        <div class="kv"><div class="kv-key">When K is medium</div><div class="kv-val">5 < K < 20: monitor CV MSE to ensure dummies improve generalisation. Group rare categories if CV degrades.</div></div>
+        <div class="kv"><div class="kv-key">When K is large</div><div class="kv-val">K ≥ 20: consider grouping rare categories into "Other", using target encoding, or Ridge/Lasso. Merge levels with similar effects on Y.</div></div>
+      </div>
+      <div class="note note-tip"><span class="nlbl">Inference note</span>For inference, choose a business-meaningful baseline so coefficients represent relevant comparisons.</div>
+    </div>
+  </div></div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Scale or normalize numeric features, center if adding interactions (fit on train set parameters)</span>
+      <span class="step-tag tag-o">Optional</span>
+    </div>
+    <p class="step-desc">Standardization (subtract mean, divide by SD) or min-max scaling can improve numerical stability and interpretation. <b>Compute mean and SD from training set only.</b> Apply those exact parameters to test set. <b>Centering is particularly important if you plan to include interaction or polynomial terms.</b></p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">When to scale/center</div><div class="kv-val">Regularized models (Ridge, Lasso), distance-based algorithms, or when comparing coefficient magnitudes. <b>Always center before creating interactions</b> to reduce multicollinearity between main effects and their interactions.</div></div>
+        <div class="kv"><div class="kv-key">How to center</div><div class="kv-val">z = (x − train_mean) / train_sd. Example: if train_mean = 50, train_sd = 10, and test has x = 55, then z_test = (55−50)/10 = 0.5. Never use test set mean/SD.</div></div>
+        <div class="kv"><div class="kv-key">Centering benefit for interactions</div><div class="kv-val">Without centering, X and X² or X₁ and X₁×X₂ are highly correlated, inflating SEs and making interpretation hard. Centering X first breaks this artificial collinearity.</div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Create interaction terms and polynomial features based on EDA and business logic</span>
+      <span class="step-tag tag-o">Optional</span>
+    </div>
+    <p class="step-desc">Once you have clean X and Y, create derived features: X² for curves, X₁ × X₂ for interactions, log(X) for skewed predictors. Document which transformations you create on training data. Apply the same transformations to test data.</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Example interactions</div><div class="kv-val">TV × Radio spend (effects amplify each other), Age × Income (spending patterns differ by both)</div></div>
+        <div class="kv"><div class="kv-key">Hierarchical principle</div><div class="kv-val">If X₁×X₂ is included, always include X₁ and X₂ individually — even if their p-values are not significant</div></div>
+      </div>
+    </div>
+  </div></div>
+
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════ 05 -->
+<div class="phase" id="ph5">
+<button class="ph-toggle" onclick="tog('ph5')">
+  <span class="ph-num">05</span>
   <span class="ph-name">Assumptions You Can Check Before Fitting</span>
   <span class="ph-sub">Preliminary checks — confirmed properly post-fit via residuals</span>
-  <span class="ph-cnt" id="ct3"></span>
+  <span class="ph-cnt" id="ct5"></span>
   <span class="ph-arrow">▾</span>
 </button>
 <div class="ph-steps">
@@ -550,7 +711,7 @@ body {
       <div class="step-header">
         <span class="step-title">Note — assumption checking is a two-stage process</span>
       </div>
-      <p class="step-desc">Assumptions like homoscedasticity, normality of errors, and correlated errors <b>cannot be verified before fitting</b> — they require residuals which only exist after the model is run. Here you make preliminary assessments; Phase 08 confirms them formally. The full process is iterative: fit → diagnose → fix → refit.</p>
+      <p class="step-desc">Assumptions like homoscedasticity, normality of errors, and correlated errors <b>cannot be verified before fitting</b> — they require residuals which only exist after the model is run. Here you make preliminary assessments; Phase 09 confirms them formally. The full process is iterative: fit → diagnose → fix → refit.</p>
     </div>
   </div>
 
@@ -559,7 +720,22 @@ body {
       <span class="step-title">Linearity — do scatter plots suggest straight-line relationships?</span>
       <span class="step-tag tag-m">Must</span>
     </div>
-    <p class="step-desc">The model Y ≈ β₀ + β₁X₁ + ... assumes linear relationships between each X and Y. Clear curves in scatter plots are a preliminary warning. The definitive check is the residual vs. fitted plot after fitting — it will show a systematic U-shape if linearity is violated.</p>
+    <p class="step-desc">The linearity assumption is that the <b>combined effect</b> of all X variables has a linear relationship with Y — i.e. E[Y | X₁, X₂, ...] = β₀ + β₁X₁ + β₂X₂ + ... It does <em>not</em> require that each individual X has a straight-line relationship with Y when looked at in isolation. Clear curves in individual scatter plots signal the need to transform variables (e.g., add polynomial terms like X² or use log(X)) so that the <em>combined linear combination</em> fits well. The definitive check is the residual vs. fitted plot after fitting — it will show a systematic U-shape if the combined relationship is violated.</p>
+  </div></div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Check multivariate linearity via partial regression plots (after fitting)</span>
+      <span class="step-tag tag-o">Optional</span>
+    </div>
+    <p class="step-desc">For multiple regression with 2+ predictors, individual X vs Y scatter plots can be misleading due to confounding. After fitting, use partial regression plots (partial residual plots) to visualize the relationship between each X and Y while holding others constant. A partial regression plot shows [residual(Y after removing effect of other Xs)] vs [residual(Xⱼ after removing effect of other Xs)].</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Purpose</div><div class="kv-val">Reveals whether the linear assumption holds for each Xⱼ in the context of the full model. If the partial plot shows a clear curve, Xⱼ may need transformation (e.g., add Xⱼ²) even if the univariate scatter plot is fairly linear.</div></div>
+        <div class="kv"><div class="kv-key">How to read</div><div class="kv-val">Points should scatter randomly around a 45° line with no systematic curve. If you see a U-shape, inverted U, or S-curve, transform that variable.</div></div>
+        <div class="kv"><div class="kv-key">When available</div><div class="kv-val">Standard output from regression diagnostics in R (plot(lm_fit, which=1)), Python (statsmodels), or SAS</div></div>
+      </div>
+    </div>
   </div></div>
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
@@ -581,62 +757,19 @@ body {
       <span class="step-title">No perfect multicollinearity — Xs must not be exact linear combinations</span>
       <span class="step-tag tag-m">Must</span>
     </div>
-    <p class="step-desc">Perfect multicollinearity (e.g. including "total spend" and two components that sum to it exactly) makes (XᵀX) singular — OLS has no unique solution and fails entirely. High but not perfect collinearity is handled in Phase 07 via VIF.</p>
+    <p class="step-desc">Perfect multicollinearity (e.g. including "total spend" and two components that sum to it exactly) makes (XᵀX) singular — OLS has no unique solution and fails entirely. High but not perfect collinearity is handled in Phase 09 via VIF.</p>
   </div></div>
 
 </div>
 </div>
 
-<!-- ═══════════════════════════════════════ 04 -->
-<div class="phase" id="ph4">
-<button class="ph-toggle" onclick="tog('ph4')">
-  <span class="ph-num">04</span>
-  <span class="ph-name">Train / Test Split & Cross-Validation</span>
-  <span class="ph-sub">Lock evaluation framework before any model is fit</span>
-  <span class="ph-cnt" id="ct4"></span>
-  <span class="ph-arrow">▾</span>
-</button>
-<div class="ph-steps">
-
-  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
-    <div class="step-header">
-      <span class="step-title">Split data into Train and Test before fitting anything</span>
-      <span class="step-tag tag-m">Must</span>
-    </div>
-    <p class="step-desc">Lock the test set away immediately. It must not influence any modelling decision — variable selection, transformation choice, model complexity. It is your final honest performance number, used <b>exactly once</b> at the very end. Any peek at test data for decisions makes that number dishonest.</p>
-    <div class="notes">
-      <div class="kv-list">
-        <div class="kv"><div class="kv-key">Typical split</div><div class="kv-val">70–80% train, 20–30% test</div></div>
-        <div class="kv"><div class="kv-key">Time series</div><div class="kv-val">Split <b>chronologically</b>. Train on earlier data, test on later. Random split leaks future into past.</div></div>
-      </div>
-      <div class="note note-tip"><span class="nlbl">Inference note</span>For inference-only tasks (no forecasting), a formal train/test split is less critical. The focus shifts to coefficient stability and the quality of standard errors rather than out-of-sample prediction accuracy.</div>
-    </div>
-  </div></div>
-
-  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
-    <div class="step-header">
-      <span class="step-title">Use K-Fold Cross-Validation on training data for all model selection decisions</span>
-      <span class="step-tag tag-m">Must</span>
-    </div>
-    <p class="step-desc">Variable selection, transformation choices, and model complexity decisions must all be made using CV MSE on training data only. CV gives a far more reliable estimate of generalisation error than training MSE, which always decreases as you add variables.</p>
-    <div class="notes">
-      <div class="kv-list">
-        <div class="kv"><div class="kv-key">K choice</div><div class="kv-val">K = 5 or K = 10 are standard. K = 10 gives lower bias; K = 5 is faster.</div></div>
-        <div class="kv"><div class="kv-key">Compare models by</div><div class="kv-val">CV MSE — not training R², not training RSE.</div></div>
-      </div>
-    </div>
-  </div></div>
-
-</div>
-</div>
-
-<!-- ═══════════════════════════════════════ 05 -->
-<div class="phase" id="ph5">
-<button class="ph-toggle" onclick="tog('ph5')">
-  <span class="ph-num">05</span>
+<!-- ═══════════════════════════════════════ 06 -->
+<div class="phase" id="ph6">
+<button class="ph-toggle" onclick="tog('ph6')">
+  <span class="ph-num">06</span>
   <span class="ph-name">Establish Baselines</span>
-  <span class="ph-sub">You need a floor to measure improvement against</span>
-  <span class="ph-cnt" id="ct5"></span>
+  <span class="ph-sub">You need a floor to measure improvement against — fit BEFORE variable selection</span>
+  <span class="ph-cnt" id="ct6"></span>
   <span class="ph-arrow">▾</span>
 </button>
 <div class="ph-steps">
@@ -649,7 +782,7 @@ body {
     <p class="step-desc">The null model always predicts ȳ regardless of X. It is your absolute floor. R² literally measures improvement over this baseline — R² = 0 means your model does no better than guessing the mean. Any model that cannot beat this has zero practical value.</p>
     <div class="notes">
       <div class="kv-list">
-        <div class="kv"><div class="kv-key">Record</div><div class="kv-val">Null model RMSE = SD(Y). This is your reference RMSE for all subsequent models.</div></div>
+        <div class="kv"><div class="kv-key">Record</div><div class="kv-val">Null model RMSE = SD(Y) on training set. This is your reference for all subsequent models.</div></div>
         <div class="kv"><div class="kv-key">TSS connection</div><div class="kv-val">TSS = Σ(yᵢ − ȳ)² is the null model's RSS. R² = 1 − RSS/TSS.</div></div>
       </div>
     </div>
@@ -657,28 +790,29 @@ body {
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
     <div class="step-header">
-      <span class="step-title">Fit simple linear regression on your strongest single predictor</span>
+      <span class="step-title">Fit simple regression on your strongest single candidate predictor</span>
       <span class="step-tag tag-m">Must</span>
     </div>
-    <p class="step-desc">Before multiple regression, understand each variable individually. Does the sign of β̂₁ match business expectation? An unexpected sign often indicates a missing confounder or collinearity — both need to be understood before adding more variables.</p>
+    <p class="step-desc">Before fitting a full model, understand the strongest single variable. Does the sign of β̂₁ match business expectation? Unexpected signs often signal missing confounders or colliders — problems that multi-variable models may hide. Record this as a reference baseline.</p>
     <div class="notes">
       <div class="kv-list">
-        <div class="kv"><div class="kv-key">Record from output</div><div class="kv-val">β̂₀, β̂₁, SE(β̂₁), t-statistic, p-value, 95% CI for β̂₁, R², RSE</div></div>
-        <div class="kv"><div class="kv-key">Inference focus</div><div class="kv-val">Interpret β̂₁ in business units. Check CI width — narrow means precise, wide means uncertain.</div></div>
+        <div class="kv"><div class="kv-key">Record from output</div><div class="kv-val">β̂₁, SE(β̂₁), p-value, 95% CI, R², RMSE on training set</div></div>
+        <div class="kv"><div class="kv-key">Purpose</div><div class="kv-val">This baseline will be compared against your final model (after variable selection in Phase 08). Does adding more variables improve over this simple model?</div></div>
       </div>
+      <div class="note note-tip"><span class="nlbl">Timing note</span>You fit preliminary baselines HERE (null + single best X). After variable selection in Phase 08, you'll refit your chosen model and compare against these baselines. This prevents selection bias from making your final model look artificially good.</div>
     </div>
   </div></div>
 
 </div>
 </div>
 
-<!-- ═══════════════════════════════════════ 06 -->
-<div class="phase" id="ph6">
-<button class="ph-toggle" onclick="tog('ph6')">
-  <span class="ph-num">06</span>
+<!-- ═══════════════════════════════════════ 07 -->
+<div class="phase" id="ph7">
+<button class="ph-toggle" onclick="tog('ph7')">
+  <span class="ph-num">07</span>
   <span class="ph-name">Fit & Read the Output Table</span>
   <span class="ph-sub">Standard errors, hypothesis tests, confidence intervals</span>
-  <span class="ph-cnt" id="ct6"></span>
+  <span class="ph-cnt" id="ct7"></span>
   <span class="ph-arrow">▾</span>
 </button>
 <div class="ph-steps">
@@ -837,6 +971,24 @@ body {
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
     <div class="step-header">
+      <span class="step-title">Interpret each β̂ⱼ — magnitude and units matter more than p-value</span>
+      <span class="step-tag tag-m">Must</span>
+      <span class="step-tag tag-inf">Inference</span>
+    </div>
+    <p class="step-desc">β̂ⱼ is your estimate of how much Y changes when Xⱼ increases by one unit, holding all other variables constant. The magnitude and 95% CI are the main deliverables. The p-value merely indicates whether you can rule out β=0; it does not measure importance.</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Practical vs statistical significance</div><div class="kv-val">A coefficient can be highly significant (p<0.001) yet tiny in business terms (e.g., β̂=0.0001). Conversely, large effects (β̂=50) with p=0.06 may be more important than tiny significant effects. Always report the point estimate and 95% CI, not just the p-value.</div></div>
+        <div class="kv"><div class="kv-key">Units and scaling</div><div class="kv-val">If X is in millions and Y in thousands, then β̂=2 means Y increases by 2 thousand per million-unit increase in X. If you centered X, then β̂ represents the effect of a one-SD increase in X.</div></div>
+        <div class="kv"><div class="kv-key">Log-transformed Y</div><div class="kv-val">If Y was log-transformed, β̂ⱼ ≈ percent change in Y per unit Xⱼ (multiply by 100 for percentage). Example: β̂=0.05 means a 5% increase in Y per unit X.</div></div>
+        <div class="kv"><div class="kv-key">Dummy variables</div><div class="kv-val">For categorical X: β̂ is the difference in mean Y between that category and the baseline. Example: if baseline is "Male" and β̂_Female = 3000, then women earn 3000 units more than men on average (holding other variables constant).</div></div>
+        <div class="kv"><div class="kv-key">Interactions</div><div class="kv-val">If model includes X₁ × X₂, then β̂₁ is the effect of X₁ when X₂=0 (or when centered X₂=0). The interaction coefficient β̂₁₂ shows how this effect changes per unit of X₂.</div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
       <span class="step-title">Interpret R² and use Adjusted R² / AIC / BIC to compare models</span>
       <span class="step-tag tag-m">Must</span>
     </div>
@@ -858,78 +1010,109 @@ body {
 </div>
 </div>
 
-<!-- ═══════════════════════════════════════ 07 -->
-<div class="phase" id="ph7">
-<button class="ph-toggle" onclick="tog('ph7')">
-  <span class="ph-num">07</span>
+<!-- ═══════════════════════════════════════ 08 -->
+<div class="phase" id="ph8">
+<button class="ph-toggle" onclick="tog('ph8')">
+  <span class="ph-num">08</span>
   <span class="ph-name">Variable Selection</span>
-  <span class="ph-sub">Which predictors to keep — guided by CV MSE</span>
-  <span class="ph-cnt" id="ct7"></span>
+  <span class="ph-sub">Which predictors to keep — guided by CV performance</span>
+  <span class="ph-cnt" id="ct8"></span>
   <span class="ph-arrow">▾</span>
 </button>
 <div class="ph-steps">
 
-  <div class="phase-section">Choose one selection strategy</div>
+  <div class="step step-info">
+    <div class="step-body">
+      <div class="step-header">
+        <span class="step-title">⚠️ Important: Stepwise regression (p-value thresholding) is fundamentally flawed for inference</span>
+      </div>
+      <p class="step-desc"><b>Backward elimination ("remove least significant variables") and forward selection ("add most significant variables") are NOT recommended</b> because they:
+      <ul style="margin-top: 8px; margin-left: 16px; color: var(--t2);">
+        <li><b>Inflate false discovery rate:</b> Testing 50 variables with α=0.05 yields ~2.5 false positives by chance. No correction applied.</li>
+        <li><b>Bias coefficient estimates:</b> Selected variables are overestimated (selected because their t-stats were extreme).</li>
+        <li><b>Invalidate p-values & CIs:</b> Standard errors are underestimated for selected variables.</li>
+        <li><b>Produce inflated R² & F-stats:</b> In-sample fit looks better than out-of-sample.</li>
+      </ul>
+      </p>
+      <p style="margin-top: 12px; color: var(--t2);">
+      For prediction tasks, stepwise can work (use CV MSE as stopping rule, not p-values). For inference, use regularization (Ridge/Lasso) instead — it shrinks coefficients without the selection bias.
+      </p>
+    </div>
+  </div>
+
+  <div class="phase-section">Recommended approach: Regularization</div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Use Ridge or Lasso regression for variable selection (Recommended)</span>
+      <span class="step-tag tag-m">Must</span>
+    </div>
+    <p class="step-desc">Regularization shrinks coefficients toward zero, automatically performing variable selection without the biases of stepwise methods. Choose λ (shrinkage strength) via cross-validation.</p>
+    <div class="notes">
+      <div class="formula-block">
+        <span class="flbl">Ridge vs Lasso</span>
+        <b>Ridge:</b> Shrink all coefficients, keep all variables. Good when all X are truly related to Y.<br>
+        <b>Lasso:</b> Shrink some coefficients to exactly zero, automatically dropping variables. Good when many X are irrelevant.<br>
+        <b>Elastic Net:</b> Blend of both. Use when you're unsure.
+      </div>
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">How to choose λ</div><div class="kv-val">5-fold CV on training set: fit Ridge/Lasso at many λ values, pick λ that minimizes CV MSE. Plot CV error vs λ — most software does this automatically.</div></div>
+        <div class="kv"><div class="kv-key">Interpretation</div><div class="kv-val">Regularized coefficients are biased toward zero (trade variance for bias). They do NOT have p-values or CIs. Use for prediction or as a tool to identify "important" variables (non-zero in Lasso).</div></div>
+        <div class="kv"><div class="kv-key">Advantages over stepwise</div><div class="kv-val">No selection bias, valid CV estimates, stable across datasets, handles p > n naturally.</div></div>
+      </div>
+    </div>
+  </div></div>
+
+  <div class="phase-section">Alternative approach (use only if regularization not available)</div>
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
     <div class="step-header">
       <span class="step-title">Forward Selection — start from null model, add one variable at a time</span>
       <span class="step-tag tag-a">Alt A</span>
     </div>
-    <p class="step-desc">Start with the null model (intercept only). At each step, add the variable that most reduces RSS (or improves CV MSE). Stop when adding any remaining variable worsens CV MSE.</p>
+    <p class="step-desc">Start with intercept only. At each step, add the variable that most reduces CV MSE. Stop when adding any remaining variable worsens CV MSE. Use CV MSE as stopping rule, NOT p-values.</p>
     <div class="notes">
       <div class="kv-list">
-        <div class="kv"><div class="kv-key">Use when</div><div class="kv-val">Many candidate variables (p &gt; 10), or when p &gt; n where backward selection is impossible</div></div>
-        <div class="kv"><div class="kv-key">Limitation</div><div class="kv-val">Greedy — can include variables early that become redundant when others are added later</div></div>
+        <div class="kv"><div class="kv-key">When to use</div><div class="kv-val">When p > n (OLS can't fit full model) or when you lack regularization software. Avoid for inference.</div></div>
+        <div class="kv"><div class="kv-key">Limitation</div><div class="kv-val">Greedy — can include variables early that become redundant when others added later. Monitor CV MSE carefully.</div></div>
+        <div class="kv"><div class="kv-key">Stopping rule</div><div class="kv-val">Stop when CV MSE increases or reaches a plateau (not when p-value crosses threshold).</div></div>
       </div>
     </div>
   </div></div>
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
     <div class="step-header">
-      <span class="step-title">Backward Elimination — start with all variables, remove one at a time</span>
+      <span class="step-title">Backward Elimination — start with all variables, remove one at a time (NOT RECOMMENDED FOR INFERENCE)</span>
       <span class="step-tag tag-a">Alt B</span>
     </div>
-    <p class="step-desc">Fit the full model. Remove the variable with the largest p-value (least significant). Refit. Repeat until all remaining variables have p &lt; threshold or removal worsens CV MSE.</p>
+    <p class="step-desc">Fit the full model. Remove the variable that most reduces CV MSE (not the one with highest p-value). Refit. Repeat until removal worsens CV MSE. <b>Use CV MSE, not p-values, as the stopping criterion.</b></p>
     <div class="notes">
       <div class="kv-list">
-        <div class="kv"><div class="kv-key">Use when</div><div class="kv-val">Fewer variables (p &lt; 10), inference is the goal, you want to keep the full picture visible throughout</div></div>
-        <div class="kv"><div class="kv-key">Cannot use when</div><div class="kv-val">p &gt; n — OLS cannot fit the full model</div></div>
+        <div class="kv"><div class="kv-key">When to use</div><div class="kv-val">Only when you need a quick variable screen and regularization is unavailable. Never use for final inference model.</div></div>
+        <div class="kv"><div class="kv-key">Cannot use when</div><div class="kv-val">p > n — OLS cannot fit the full model to start.</div></div>
+        <div class="kv"><div class="kv-key">Critical: Use CV MSE, not p-values</div><div class="kv-val">If you remove based on p-value thresholds, you get all the biases mentioned above. Use CV MSE stopping rule instead.</div></div>
       </div>
     </div>
   </div></div>
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
     <div class="step-header">
-      <span class="step-title">Mixed Selection — forward steps with backward checks</span>
-      <span class="step-tag tag-a">Alt C</span>
-    </div>
-    <p class="step-desc">Start with no variables. Add the best at each step (like forward). But at each step also check all variables already in the model — if any variable's p-value has risen above threshold due to new additions, remove it. Continue until convergence.</p>
-    <div class="notes">
-      <div class="note note-tip"><span class="nlbl">Advantage</span>Remedies the greedy problem of pure forward selection — variables that become redundant after later additions can be dropped, not just accumulated.</div>
-    </div>
-  </div></div>
-
-  <div class="phase-section">After selecting variables — always do this</div>
-
-  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
-    <div class="step-header">
-      <span class="step-title">Never rely solely on p-values for variable selection</span>
+      <span class="step-title">Never use p-value thresholds as a selection criterion</span>
       <span class="step-tag tag-m">Must</span>
     </div>
-    <p class="step-desc">Statistical significance does not equal practical importance. A variable can be highly significant (p &lt; 0.001) yet have an effect too small to matter for any business decision. For inference tasks, report the coefficient with its CI — the magnitude of the effect is the key finding, not the p-value alone. For prediction tasks, use CV MSE improvement as the primary selection criterion.</p>
+    <p class="step-desc">Do not use "remove if p > 0.05" or "add if p < 0.05" as your stopping rule. This multiplies false discovery risk and biases all subsequent inference. Instead: use CV MSE (for prediction) or domain knowledge + regularization (for inference).</p>
   </div></div>
 
 </div>
 </div>
 
-<!-- ═══════════════════════════════════════ 08 -->
-<div class="phase" id="ph8">
-<button class="ph-toggle" onclick="tog('ph8')">
-  <span class="ph-num">08</span>
+<!-- ═══════════════════════════════════════ 09 -->
+<div class="phase" id="ph9">
+<button class="ph-toggle" onclick="tog('ph9')">
+  <span class="ph-num">09</span>
   <span class="ph-name">Post-Fit Diagnostics</span>
   <span class="ph-sub">Assumptions confirmed here via residuals — this is an iterative loop</span>
-  <span class="ph-cnt" id="ct8"></span>
+  <span class="ph-cnt" id="ct9"></span>
   <span class="ph-arrow">▾</span>
 </button>
 <div class="ph-steps">
@@ -945,11 +1128,26 @@ body {
         <thead><tr><th>Pattern seen</th><th>What it means</th><th>Fix</th></tr></thead>
         <tbody>
           <tr><td>U-shape or curve</td><td>Non-linearity — the linear model is systematically wrong</td><td>Add X² or transform X</td></tr>
-          <tr><td>Funnel / cone shape</td><td>Heteroscedasticity — residual variance grows with fitted values</td><td>Log-transform Y, or use weighted least squares</td></tr>
+          <tr><td>Funnel / cone shape</td><td>Heteroscedasticity — residual variance grows with fitted values</td><td>Log-transform Y, use weighted least squares, or robust SEs</td></tr>
           <tr><td>Trending pattern</td><td>Missing variable — unexplained signal remains in residuals</td><td>Add a relevant predictor</td></tr>
           <tr><td>Random scatter</td><td>✓ Linearity and homoscedasticity are satisfied</td><td>—</td></tr>
         </tbody>
       </table>
+    </div>
+  </div></div>
+
+  <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
+    <div class="step-header">
+      <span class="step-title">Use robust standard errors if heteroscedasticity is present (Huber-White)</span>
+      <span class="step-tag tag-o">Optional</span>
+    </div>
+    <p class="step-desc">If your residual plot shows heteroscedasticity (funnel shape) but you don't want to transform Y, robust standard errors (also called sandwich estimators or Huber-White SEs) provide valid inference under non-constant variance. The point estimates β̂ stay the same, but SEs, CIs, and p-values adjust to account for the heteroscedasticity.</p>
+    <div class="notes">
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Why use</div><div class="kv-val">Standard OLS assumes homoscedasticity. If var(ε) depends on X (funnel shape), standard SEs are wrong, CIs are too narrow, and p-values are too small. Robust SEs fix this.</div></div>
+        <div class="kv"><div class="kv-key">How</div><div class="kv-val">Most statistical software supports robust SEs — available in R (sandwich package), Python (statsmodels), Stata (HC1 option), SAS (proc reg with acov option). The computation is automatic.</div></div>
+        <div class="kv"><div class="kv-key">Tradeoff</div><div class="kv-val">Robust SEs are slightly wider than standard SEs (paying for the heteroscedasticity), but they are valid. If heteroscedasticity is severe, Y transformation often works better than robust SEs alone.</div></div>
+      </div>
     </div>
   </div></div>
 
@@ -983,19 +1181,19 @@ body {
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
     <div class="step-header">
-      <span class="step-title">Identify outliers using studentized residuals</span>
+      <span class="step-title">Identify outliers and influential points — studentized residuals, Cook's distance, leverage</span>
       <span class="step-tag tag-m">Must</span>
     </div>
-    <p class="step-desc">An outlier is an observation whose Y value is far from what the model predicts. Even when an outlier does not dramatically shift the regression line, it inflates RSE — worsening all standard errors, CIs, and p-values. Never auto-delete outliers; investigate the cause first.</p>
+    <p class="step-desc">An outlier is an observation whose Y value is far from what the model predicts. An influential point is one that strongly affects fitted coefficients. These are not the same — a point can have high leverage (unusual X values) yet still be fit well by the model. Investigate all high-influence points before deletion.</p>
     <div class="notes">
-      <div class="formula-block">
-        <span class="flbl">Studentized residual</span>
-        Studentized residualᵢ = eᵢ / SE(eᵢ)<br>
-        <span class="fcomment">Rule: |studentized residual| &gt; 3 → possible outlier<br>Equivalent to standardising by the estimated error variance</span>
+      <div class="kv-list">
+        <div class="kv"><div class="kv-key">Studentized residuals &gt; 3</div><div class="kv-val">Points with |t-residual| > 3 are extreme outliers in Y-space. Refit without them — if coefficients change significantly (>10%), they are influencing the fit. Examine for data entry errors or unusual events.</div></div>
+        <div class="kv"><div class="kv-key">Cook's distance &gt; 1</div><div class="kv-val">Combined measure of leverage × residual size. Points with Cook's D > 1 strongly influence fitted coefficients. Refit without the point — if β̂ changes by >10%, it's a high-influence outlier. Document the decision.</div></div>
+        <div class="kv"><div class="kv-key">Leverage &gt; 2(p+1)/n</div><div class="kv-val">Points with unusual X combinations (far from the X-centroid in multivariate space). High leverage alone doesn't shift the fit, but high leverage + large residual = potential high influence. Review these closely.</div></div>
       </div>
       <div class="kv-list">
-        <div class="kv"><div class="kv-key">Data error</div><div class="kv-val">Fix or remove. Document the decision and reason thoroughly.</div></div>
-        <div class="kv"><div class="kv-key">Genuine extreme case</div><div class="kv-val">Keep it. Fit with and without, report both. An outlier may indicate a missing predictor or non-linearity in the model.</div></div>
+        <div class="kv"><div class="kv-key">Action if data error</div><div class="kv-val">Correct or remove. Document thoroughly.</div></div>
+        <div class="kv"><div class="kv-key">Action if genuine outlier</div><div class="kv-val">Report results both with and without. An outlier can signal a missing predictor or non-linearity — do not blindly discard.</div></div>
       </div>
     </div>
   </div></div>
@@ -1057,13 +1255,13 @@ body {
 </div>
 </div>
 
-<!-- ═══════════════════════════════════════ 09 -->
-<div class="phase" id="ph9">
-<button class="ph-toggle" onclick="tog('ph9')">
-  <span class="ph-num">09</span>
+<!-- ═══════════════════════════════════════ 10 -->
+<div class="phase" id="ph10">
+<button class="ph-toggle" onclick="tog('ph10')">
+  <span class="ph-num">10</span>
   <span class="ph-name">Predictions — CI vs. PI</span>
   <span class="ph-sub">Two different questions with two very different answers</span>
-  <span class="ph-cnt" id="ct9"></span>
+  <span class="ph-cnt" id="ct10"></span>
   <span class="ph-arrow">▾</span>
 </button>
 <div class="ph-steps">
@@ -1073,27 +1271,27 @@ body {
       <span class="step-title">Distinguish Confidence Interval from Prediction Interval for new observations</span>
       <span class="step-tag tag-m">Must</span>
     </div>
-    <p class="step-desc">These answer fundamentally different questions. Mixing them up produces either false precision or unnecessary alarm. A PI is <em>always</em> wider than a CI for the same x*.</p>
+    <p class="step-desc">These answer fundamentally different questions. Mixing them up produces either false precision or unnecessary alarm. A PI is <em>always</em> wider than a CI for the same x*. Use the right one for your decision context.</p>
     <div class="notes">
       <div class="hyp-block">
-        <div class="hyp-title">CI vs. PI</div>
+        <div class="hyp-title">CI vs. PI — when and why</div>
         <div class="hyp-body">
           <div class="hyp-row">
-            <div class="hyp-cell"><div class="hlbl">Confidence Interval</div><div class="hval">Uncertainty about the <b>average response</b> Ε[Y|X=x*] across all possible observations with these X values. Captures reducible error only.</div></div>
-            <div class="hyp-cell"><div class="hlbl">Prediction Interval</div><div class="hval">Uncertainty about <b>one specific new observation</b> Y at X=x*. Captures reducible error <em>plus</em> irreducible error σ². Always wider.</div></div>
+            <div class="hyp-cell"><div class="hlbl">Confidence Interval (CI)</div><div class="hval">Uncertainty about the <b>average/mean response</b> E[Y|X=x*] across a hypothetical population of obs at these X values. Assumes model is correct, population is infinite.</div></div>
+            <div class="hyp-cell"><div class="hlbl">Prediction Interval (PI)</div><div class="hval">Uncertainty about <b>one specific next observation</b> Y at X=x*. Includes irreducible error σ² — the random noise you cannot eliminate. Always substantially wider than CI.</div></div>
           </div>
           <div class="formula-block" style="margin-top:8px;">
-            CI: ŷ ± t · SE(f̂(x*))<br>
-            PI: ŷ ± t · √[ SE(f̂(x*))² + σ² ]<br>
-            <span class="fcomment">The σ² term = irreducible error = cannot be eliminated no matter how good the model</span>
+            CI: ŷ ± t · SE(ŷ) ≈ ŷ ± t · RSE/√n<br>
+            PI: ŷ ± t · √[ SE(ŷ)² + RSE² ]<br>
+            <span class="fcomment">PI width ∝ √(1 + 1/n). Even with infinite data (1/n→0), PI ≈ ŷ ± 2·RSE due to irreducible σ²</span>
           </div>
           <div class="hyp-row" style="margin-top:8px;">
-            <div class="hyp-cell"><div class="hlbl">Use CI when</div><div class="hval">Decisions about aggregate / average behaviour: "What will average weekly sales be across all stores at this spend level?"</div></div>
-            <div class="hyp-cell"><div class="hlbl">Use PI when</div><div class="hval">Decisions about one individual: "What will <em>this specific store's</em> sales be?" Always substantially wider.</div></div>
+            <div class="hyp-cell"><div class="hlbl">Use CI when...</div><div class="hval">Evaluating aggregate behaviour: "What is the expected average sales for all stores at this ad spend level?" Reports at scale (e.g., mean effect across a cohort).</div></div>
+            <div class="hyp-cell"><div class="hlbl">Use PI when...</div><div class="hval">Forecasting for individuals: "What will this single store's next-quarter sales be?" Operations, supply chain, individual case planning.</div></div>
           </div>
         </div>
       </div>
-      <div class="note note-tip"><span class="nlbl">ISLP advertising example</span>Given $100K TV + $20K Radio spend: CI = [10,985 – 11,528] and PI = [7,930 – 14,580]. Both centred at 11,256 but PI is roughly 4× wider — reflecting individual-level uncertainty vs. average uncertainty.</div>
+      <div class="note note-tip"><span class="nlbl">ISLP advertising example</span>Given $100K TV + $20K Radio spend: CI = [10,985 – 11,528] and PI = [7,930 – 14,580]. Both centred at 11,256 but PI is ~6× wider because individual sales vary much more than average sales.</div>
     </div>
   </div></div>
 
@@ -1108,13 +1306,13 @@ body {
 </div>
 </div>
 
-<!-- ═══════════════════════════════════════ 10 -->
-<div class="phase" id="ph10">
-<button class="ph-toggle" onclick="tog('ph10')">
-  <span class="ph-num">10</span>
+<!-- ═══════════════════════════════════════ 11 -->
+<div class="phase" id="ph11">
+<button class="ph-toggle" onclick="tog('ph11')">
+  <span class="ph-num">11</span>
   <span class="ph-name">Final Evaluation on Test Set</span>
   <span class="ph-sub">Used exactly once</span>
-  <span class="ph-cnt" id="ct10"></span>
+  <span class="ph-cnt" id="ct11"></span>
   <span class="ph-arrow">▾</span>
 </button>
 <div class="ph-steps">
@@ -1129,16 +1327,18 @@ body {
 
   <div class="step" onclick="tick(this)"><div class="ck"></div><div class="step-body">
     <div class="step-header">
-      <span class="step-title">Diagnose train error vs. test error gap</span>
+      <span class="step-title">Diagnose train error vs. test error gap — what does the gap tell you?</span>
       <span class="step-tag tag-m">Must</span>
     </div>
-    <p class="step-desc">The gap between training and test error tells you exactly what kind of problem you have.</p>
+    <p class="step-desc">The gap between training RMSE and test RMSE reveals whether your problem is under-fitting (model too simple) or over-fitting (model too complex). This diagnosis guides your next move.</p>
     <div class="notes">
       <div class="kv-list">
-        <div class="kv"><div class="kv-key">High train + High test</div><div class="kv-val"><b>Bias problem.</b> Model too simple. Add variables, interactions, polynomial terms.</div></div>
-        <div class="kv"><div class="kv-key">Low train + High test</div><div class="kv-val"><b>Variance problem.</b> Model overfitting. Reduce variables or add regularisation.</div></div>
-        <div class="kv"><div class="kv-key">Low train + Low test</div><div class="kv-val">Sweet spot. Proceed to communication.</div></div>
+        <div class="kv"><div class="kv-key">High train RMSE + High test RMSE (small gap)</div><div class="kv-val"><b>Underfitting (bias problem):</b> Model is too simple to capture the underlying relationship. Solution: add variables, interactions, polynomial terms, or use non-linear methods (splines, GAM).</div></div>
+        <div class="kv"><div class="kv-key">Low train RMSE + High test RMSE (large gap)</div><div class="kv-val"><b>Overfitting (variance problem):</b> Model learned noise in the training set, does not generalize. Solution: remove variables, apply regularisation (Ridge/Lasso), increase training data, or use early stopping.</div></div>
+        <div class="kv"><div class="kv-key">Low train RMSE + Low test RMSE (small gap)</div><div class="kv-val">✓ Balanced fit. Model captures signal without memorizing noise. Proceed to communication and deployment.</div></div>
+        <div class="kv"><div class="kv-key">Unexpected: Low train + Slightly lower test</div><div class="kv-val">Can occur due to random variation, especially with small test sets. Recheck with cross-validation (Phase 03) to confirm. Do not optimize further based on one test evaluation.</div></div>
       </div>
+      <div class="note note-tip"><span class="nlbl">Bias-variance tradeoff</span>There is no free lunch. Adding complexity reduces bias (train error) but increases variance (test gap). The goal is balance, not perfection on training data.</div>
     </div>
   </div></div>
 
@@ -1153,13 +1353,13 @@ body {
 </div>
 </div>
 
-<!-- ═══════════════════════════════════════ 11 -->
-<div class="phase" id="ph11">
-<button class="ph-toggle" onclick="tog('ph11')">
-  <span class="ph-num">11</span>
+<!-- ═══════════════════════════════════════ 12 -->
+<div class="phase" id="ph12">
+<button class="ph-toggle" onclick="tog('ph12')">
+  <span class="ph-num">12</span>
   <span class="ph-name">Communicate Results</span>
   <span class="ph-sub">Numbers into decisions</span>
-  <span class="ph-cnt" id="ct11"></span>
+  <span class="ph-cnt" id="ct12"></span>
   <span class="ph-arrow">▾</span>
 </button>
 <div class="ph-steps">
@@ -1204,7 +1404,7 @@ body {
 </div><!-- end phases -->
 
 <script>
-const N_PHASES = 11;
+const N_PHASES = 12;
 
 function tog(id) {
   document.getElementById(id).classList.toggle('open');
